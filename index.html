@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINEMA — онлайн просмотр</title>
+<style>
+:root{--bg:#0b0e14;--bg2:#11151f;--card:#161b28;--card2:#1c2334;--text:#eef1f7;--muted:#8b93a7;
+--accent:#e50914;--accent2:#ff6b35;--gold:#ffc53d;--radius:14px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+::-webkit-scrollbar{width:9px}::-webkit-scrollbar-thumb{background:#2a3348;border-radius:9px}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+img{display:block}
+.hidden{display:none!important}
+
+/* header */
+header{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;padding:14px 36px;
+background:rgba(11,14,20,.9);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.06)}
+.logo{font-size:23px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));
+-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.logo span{-webkit-text-fill-color:var(--text);font-weight:300}
+.server-info{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* search hero */
+.hero{padding:64px 36px 30px;text-align:center;background:radial-gradient(60% 120% at 50% 0%,rgba(229,9,20,.13),transparent 70%)}
+.hero h1{font-size:clamp(26px,4vw,44px);font-weight:900;margin-bottom:10px}
+.hero p{color:var(--muted);margin-bottom:28px;font-size:15px}
+.searchbox{display:flex;max-width:640px;margin:0 auto;background:var(--card);border:1px solid rgba(255,255,255,.12);
+border-radius:16px;overflow:hidden;transition:.25s}
+.searchbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px rgba(229,9,20,.18)}
+.searchbox input{flex:1;padding:17px 20px;background:none;border:none;outline:none;color:var(--text);font-size:16px}
+.searchbox button{padding:0 30px;background:linear-gradient(90deg,var(--accent),#b20710);color:#fff;font-weight:800;font-size:15px;transition:.2s}
+.searchbox button:hover{filter:brightness(1.2)}
+.hint{margin-top:14px;font-size:12.5px;color:var(--muted)}
+.hint code{background:rgba(255,255,255,.08);padding:2px 8px;border-radius:6px;color:var(--gold)}
+
+/* status */
+.status{padding:26px 36px;font-size:14.5px;color:var(--muted);text-align:center}
+.status .err{color:#ff7a7a}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--accent);
+border-radius:50%;animation:spin .8s linear infinite;vertical-align:-4px;margin-right:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* sources chips */
+.sources{display:flex;flex-wrap:wrap;gap:10px;padding:6px 36px 22px;justify-content:center}
+.chip{padding:9px 20px;border-radius:99px;font-size:13.5px;font-weight:600;background:rgba(255,255,255,.07);
+border:1px solid rgba(255,255,255,.1);color:var(--muted);transition:.2s}
+.chip:hover{color:#fff;border-color:rgba(255,255,255,.3)}
+.chip.active{background:linear-gradient(90deg,var(--accent),#b20710);color:#fff;border-color:transparent}
+.chip:disabled{opacity:.4;cursor:not-allowed}
+
+/* results grid */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px;padding:10px 36px 60px;max-width:1400px;margin:0 auto}
+.card{background:var(--card);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.25s;border:1px solid rgba(255,255,255,.05)}
+.card:hover{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.55);border-color:rgba(229,9,20,.4)}
+.card-poster{position:relative;aspect-ratio:2/3;background:#222a3d;display:flex;align-items:center;justify-content:center}
+.card-poster img{width:100%;height:100%;object-fit:cover}
+.card-poster .ph{font-size:40px;font-weight:900;color:rgba(255,255,255,.15)}
+.card-src{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;
+background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:var(--gold)}
+.card-body{padding:12px 13px}
+.card-title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* modal player */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(5,7,11,.88);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;padding:22px}
+.overlay.open{display:flex;animation:fade .25s}
+@keyframes fade{from{opacity:0}}
+.modal{width:min(1000px,100%);max-height:94vh;overflow-y:auto;background:var(--bg2);border-radius:20px;
+border:1px solid rgba(255,255,255,.1);box-shadow:0 40px 100px rgba(0,0,0,.7);animation:pop .3s}
+@keyframes pop{from{transform:translateY(30px);opacity:0}}
+.modal-close{position:sticky;top:14px;margin-left:calc(100% - 58px);z-index:6;width:44px;height:44px;border-radius:50%;
+background:rgba(0,0,0,.6);font-size:19px;color:#fff;transition:.2s}
+.modal-close:hover{background:var(--accent);transform:rotate(90deg)}
+.modal-body{padding:0 30px 30px}
+.modal-body h2{font-size:26px;font-weight:900;margin-bottom:14px}
+.filterbar{display:flex;flex-wrap:wrap;gap:9px;margin:16px 0}
+.items{display:flex;flex-direction:column;gap:11px;margin-top:6px}
+.it{display:flex;gap:15px;padding:13px;border-radius:13px;background:var(--card);border:1px solid rgba(255,255,255,.05);
+cursor:pointer;transition:.2s;align-items:center}
+.it:hover{background:var(--card2);border-color:rgba(229,9,20,.35);transform:translateX(5px)}
+.it.playing{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.it-ico{flex-shrink:0;width:52px;height:52px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+font-size:19px;background:linear-gradient(135deg,#232c44,#171d2e);color:#5f6b8a}
+.it.playing .it-ico{background:linear-gradient(135deg,var(--accent),#8f060e);color:#fff}
+.it-info{flex:1;min-width:0}
+.it-title{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it-sub{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* iframe player */
+.player-wrap{margin:18px 0 8px}
+.player-box{position:relative;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden;
+border:1px solid rgba(255,255,255,.1)}
+.player-box iframe{width:100%;height:100%;border:0}
+.player-note{margin-top:10px;font-size:12.5px;color:var(--muted);text-align:center}
+.empty-msg{padding:40px;text-align:center;color:var(--muted);font-size:14.5px}
+
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);z-index:300;padding:13px 26px;
+border-radius:12px;background:#1d2536;border:1px solid rgba(255,255,255,.12);font-size:14px;transition:.35s;opacity:0}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+@media(max-width:700px){.cards{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));padding:10px 16px 50px}
+header,.hero,.sources{padding-left:16px;padding-right:16px}.modal-body{padding:0 16px 20px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CINE<span>MA</span></div>
+  <div class="server-info" id="srvInfo"></div>
+</header>
+
+<section class="hero">
+  <h1>Фильмы и сериалы онлайн</h1>
+  <p>Введите название — мы найдём его через источники</p>
+  <div class="searchbox">
+    <input id="q" type="text" placeholder="Название фильма или сериала..." autocomplete="off">
+    <button id="go">Найти</button>
+  </div>
+  <div class="hint">Для поиска по ID напишите: <code>id:872585</code></div>
+</section>
+
+<div class="status hidden" id="status"></div>
+<div class="sources hidden" id="sources"></div>
+<div class="cards hidden" id="results"></div>
+<div class="status" id="placeholder">🔍 Начните поиск — например: <b style="color:var(--text)">Интерстеллар</b>, <b style="color:var(--text)">Доктор Хаус</b>, <b style="color:var(--text)">id:1396</b></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="modal-close" id="close">✕</button>
+    <div class="modal-body">
+      <div class="player-wrap hidden" id="playerWrap">
+        <div class="player-box"><iframe id="frame" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe></div>
+        <div class="player-note">Источник загружен в iframe — если экран чёрный, источник не разрешает встраивание</div>
+      </div>
+      <h2 id="mTitle"></h2>
+      <div class="filterbar hidden" id="chips"></div>
+      <div class="items" id="items"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= НАСТРОЙКИ ================= */
+// Сервер Lampac (из плагина o.js). Можно заменить на свой, например 'https://ab2024.ru'
+const SERVER = 'http://31.129.234.181';
+
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s==null?'':s).replace(/</g,'&lt;');
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600);}
+function absUrl(u){ if(!u) return u;
+  if(u.startsWith('http')) return u;
+  if(u.startsWith('/')) return SERVER + u;
+  return SERVER + '/' + u; }
+$('#srvInfo').textContent = 'сервер: ' + SERVER.replace(/^https?:\/\//,'');
+
+/* ---- запросы с обходом CORS ---- */
+async function lampacFetch(url){
+  url = absUrl(url);
+  try{ const r = await fetch(url); if(r.ok) return await r.text(); }catch(e){}
+  try{ const r = await fetch(SERVER + '/cors/' + encodeURIComponent(url)); if(r.ok) return await r.text(); }catch(e){}
+  try{ const r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)); if(r.ok) return await r.text(); }catch(e){}
+  throw new Error('Не удалось загрузить: CORS / сеть');
+}
+async function lampacJson(url){ const t = await lampacFetch(url); return JSON.parse(t); }
+
+/* ---- парсер ответов Lampac (как в плагине: .videos__item / .videos__button) ---- */
+function parseItems(str, sel){
+  const doc = new DOMParser().parseFromString(str,'text/html');
+  return [...doc.querySelectorAll(sel)].map(el=>{
+    let data = {};
+    try{ data = JSON.parse(el.getAttribute('data-json')||'{}'); }catch(e){}
+    if(el.getAttribute('e')) data.episode = +el.getAttribute('e');
+    if(el.getAttribute('s')) data.season = +el.getAttribute('s');
+    const t = el.textContent.trim();
+    if(t) data.text = t;
+    data.active = el.classList.contains('active');
+    return data;
+  });
+}
+function tryJson(str){ try{ return JSON.parse(str); }catch(e){ return null; } }
+
+/* ================= ПОИСК ================= */
+async function doSearch(){
+  const q = $('#q').value.trim();
+  if(!q) return;
+  $('#results').classList.add('hidden'); $('#sources').classList.add('hidden');
+  $('#placeholder').classList.add('hidden');
+  setStatus('<span class="spinner"></span>Ищем «' + esc(q) + '» через источники...');
+
+  const idMatch = q.match(/^id:\s*(\d+)$/i);
+  if(idMatch){ await searchById(idMatch[1]); return; }
+
+  try{
+    const links = await lampacJson(SERVER + '/lite/spider?title=' + encodeURIComponent(q));
+    const names = Object.keys(links||{});
+    if(!names.length){ setStatus('Источники не вернули ссылок для поиска','err'); return; }
+
+    setStatus('<span class="spinner"></span>Опрашиваем ' + names.length + ' источников...');
+    const cards = []; const seen = new Set();
+    await Promise.all(names.slice(0,12).map(async name=>{
+      try{
+        const j = await lampacJson(links[name]);
+        if(j && j.type==='similar' && Array.isArray(j.data)){
+          j.data.forEach(c=>{
+            const key = (c.title||'').toLowerCase();
+            if(key && !seen.has(key)){ seen.add(key); cards.push({...c, srcName:name}); }
+          });
+        }
+      }catch(e){}
+    }));
+
+    if(!cards.length){ setStatus('Ничего не найдено 😔 Попробуйте уточнить название или поиск по id','err'); return; }
+    setStatus('Найдено результатов: ' + cards.length);
+    renderCards(cards);
+  }catch(e){ setStatus('Ошибка поиска: ' + e.message,'err'); }
+}
+
+/* поиск по TMDB id — как плагин: /lite/events?id=... */
+async function searchById(id){
+  try{
+    const url = SERVER + '/lite/events?id=' + id + '&title=&original_title=&serial=0&year=&source=tmdb&clarification=1';
+    const json = await lampacJson(url);
+    const list = Array.isArray(json) ? json : (json && json.online) || [];
+    const avail = list.filter(b=>b.show !== false && b.url);
+    if(!avail.length){ setStatus('По id ' + id + ' ничего не найдено','err'); return; }
+    setStatus('По id ' + id + ' найдено источников: ' + avail.length + ' — выберите источник:');
+    renderSources(avail.map(b=>({name:b.name || b.balanser, url:b.url})));
+  }catch(e){ setStatus('Ошибка: ' + e.message,'err'); }
+}
+
+function setStatus(html, cls){ const s=$('#status'); s.innerHTML=html; s.classList.remove('hidden','err'); if(cls)s.classList.add(cls); }
+
+function renderSources(list){
+  const box=$('#sources'); box.innerHTML=''; box.classList.remove('hidden');
+  list.forEach(s=>{
+    const b=document.createElement('button'); b.className='chip'; b.textContent=s.name||'источник';
+    b.onclick=()=>{ [...box.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); openUrl(s.url, s.name); };
+    box.appendChild(b);
+  });
+}
+
+function renderCards(cards){
+  const box=$('#results'); box.innerHTML=''; box.classList.remove('hidden');
+  cards.forEach(c=>{
+    const img = c.img ? absUrl(c.img) : '';
+    const d=document.createElement('div'); d.className='card';
+    d.innerHTML = `<div class="card-poster">${img?`<img src="${esc(img)}" loading="lazy" onerror="this.remove()">`:'<span class="ph">?</span>'}
+      <span class="card-src">${esc(c.source_name || c.balanser || c.srcName || '')}</span></div>
+      <div class="card-body"><div class="card-title">${esc(c.title)}</div>
+      <div class="card-sub">${esc(c.year||'')}</div></div>`;
+    d.onclick=()=>openUrl(c.url, c.title);
+    box.appendChild(d);
+  });
+}
+
+/* ================= БРАУЗЕР ВНУТРИ ИСТОЧНИКА ================= */
+async function openUrl(url, title){
+  $('#overlay').classList.add('open'); document.body.style.overflow='hidden';
+  $('#playerWrap').classList.add('hidden'); $('#frame').src='about:blank';
+  $('#chips').classList.add('hidden');
+  $('#mTitle').textContent = title || 'Загрузка...';
+  $('#items').innerHTML = '<div class="empty-msg"><span class="spinner"></span>Загружаем...</div>';
+  try{ await browse(url); }catch(e){ $('#items').innerHTML='<div class="empty-msg">Ошибка: '+esc(e.message)+'</div>'; }
+}
+
+async function browse(url){
+  const txt = await lampacFetch(url.replace('rjson=','nojson='));
+  const j = tryJson(txt);
+  if(j && j.rch){ $('#items').innerHTML='<div class="empty-msg">Этот источник требует RCH-подключения (WebSocket) — в браузере не поддерживается</div>'; return; }
+  if(j && j.accsdb){ $('#items').innerHTML='<div class="empty-msg">'+esc(j.msg||'Доступ ограничен')+'</div>'; return; }
+
+  const items  = parseItems(txt,'.videos__item');
+  const voices = parseItems(txt,'.videos__button');
+
+  if(items.length===1 && items[0].method==='link' && !items[0].similar){
+    return browse(items[0].url); // единственная ссылка — идём сразу
+  }
+
+  const videos  = items.filter(v=>['play','call','iframe'].includes(v.method));
+  const folders = items.filter(v=>v.method==='link');
+  const sims    = items.filter(v=>v.similar);
+
+  // озвучки — чипы
+  if(voices.length){
+    const bar=$('#chips'); bar.innerHTML=''; bar.classList.remove('hidden');
+    voices.forEach(v=>{
+      const b=document.createElement('button'); b.className='chip'+(v.active?' active':'');
+      b.textContent = v.text || 'озвучка';
+      b.onclick=async()=>{ [...bar.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); try{await browse(v.url);}catch(e){toast(e.message);} };
+      bar.appendChild(b);
+    });
+  } else $('#chips').classList.add('hidden');
+
+  const box=$('#items'); box.innerHTML='';
+  const list = videos.length ? videos : (folders.length ? folders : sims);
+
+  if(!list.length){ box.innerHTML='<div class="empty-msg">Пустой ответ от источника</div>'; return; }
+
+  list.forEach(it=>{
+    const isVideo = ['play','call','iframe'].includes(it.method);
+    const sub = [it.quality ? Object.keys(it.quality).join(' · ') : '', it.voice_name||''].filter(Boolean).join(' · ');
+    const d=document.createElement('div'); d.className='it';
+    d.innerHTML = `<div class="it-ico">${isVideo?'▶':'📁'}</div>
+      <div class="it-info"><div class="it-title">${esc(it.text || it.title || (it.episode?('Серия '+it.episode):'Элемент'))}</div>
+      <div class="it-sub">${esc(sub)}</div></div>`;
+    d.onclick=async()=>{
+      if(isVideo){
+        [...box.children].forEach(x=>x.classList.remove('playing')); d.classList.add('playing');
+        await playInIframe(it);
+      } else { try{ await browse(it.url); }catch(e){ toast(e.message); } }
+    };
+    box.appendChild(d);
+  });
+}
+
+/* ================= ПЛЕЕР (iframe, как вы и просили) ================= */
+async function playInIframe(item){
+  $('#mTitle').textContent = item.text || 'Просмотр';
+  let url = item.url;
+  if(item.method==='call'){
+    // получаем прямую ссылку, затем всё равно грузим в iframe
+    try{
+      const t = await lampacFetch(url);
+      const j = tryJson(t);
+      if(j){
+        if(j.rch){ toast('Источник требует RCH — нельзя воспроизвести'); return; }
+        if(j.url) url = j.url;
+        else if(j.iframe) url = j.iframe;
+      }
+    }catch(e){ toast('Не удалось получить ссылку: '+e.message); return; }
+  }
+  $('#playerWrap').classList.remove('hidden');
+  $('#frame').src = absUrl(url);
+  $('#playerWrap').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ================= СОБЫТИЯ ================= */
+$('#go').onclick=doSearch;
+$('#q').addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(); });
+$('#close').onclick=closeModal;
+$('#overlay').addEventListener('click',e=>{ if(e.target.id==='overlay') closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+function closeModal(){ $('#overlay').classList.remove('open'); document.body.style.overflow=''; $('#frame').src='about:blank'; }
+</script>
+</body>
+</html>
